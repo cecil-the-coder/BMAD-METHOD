@@ -8,11 +8,17 @@ const { extractYamlFromAgent } = require('../../lib/yaml-utils');
  * Converts BMad agents and workflows to llxprt prompt hierarchy
  */
 class LlxprtAdapter {
-  constructor() {
-    this.llxprtRoot = path.join(os.homedir(), '.llxprt', 'prompts');
-    this.bmadToolsDir = path.join(this.llxprtRoot, 'tools', 'bmad');
-    this.bmadEnvDir = path.join(this.llxprtRoot, 'env', 'bmad');
-    this.bmadServicesDir = path.join(this.llxprtRoot, 'services', 'bmad');
+  constructor(installDir = null) {
+    // Use project directory for llxprt integration instead of home directory
+    const baseDir = installDir || process.cwd();
+    this.llxprtRoot = path.join(baseDir, '.llxprt');
+    this.bmadCommandsDir = path.join(this.llxprtRoot, 'commands', 'bmad');
+    this.bmadPromptsDir = path.join(this.llxprtRoot, 'prompts', 'bmad');
+    
+    // Support both CLI commands and IDE prompts
+    this.bmadToolsDir = path.join(this.llxprtRoot, 'prompts', 'tools', 'bmad');
+    this.bmadEnvDir = path.join(this.llxprtRoot, 'prompts', 'env', 'bmad');
+    this.bmadServicesDir = path.join(this.llxprtRoot, 'prompts', 'services', 'bmad');
   }
 
   /**
@@ -266,6 +272,20 @@ When in this environment, you have access to all BMad tools:
   }
 
   /**
+   * Create TOML command file for llxprt CLI
+   */
+  createCliCommand(agentId, description, promptContent) {
+    return `# BMad ${agentId} Agent Command
+description = "${description}"
+
+prompt = """
+${promptContent.replace(/"""/g, '\\"""')}
+
+{{args}}
+"""`;
+  }
+
+  /**
    * Install BMad prompts to llxprt structure
    */
   async installToLlxprt(bmadCorePath) {
@@ -275,12 +295,19 @@ When in this environment, you have access to all BMad tools:
     await fs.ensureDir(this.bmadToolsDir);
     await fs.ensureDir(this.bmadEnvDir);
     await fs.ensureDir(this.bmadServicesDir);
+    await fs.ensureDir(this.bmadCommandsDir);
 
-    // Install agents as tools
+    // Install agents as tools (for IDE integration)
     await this.installAgentsAsTools(bmadCorePath);
+
+    // Install agents as CLI commands (for llxprt CLI)
+    await this.installAgentsAsCliCommands(bmadCorePath);
 
     // Install agents as services (commands)
     await this.installAgentsAsServices(bmadCorePath);
+
+    // Install tasks as CLI commands
+    await this.installTasksAsCliCommands(bmadCorePath);
 
     // Install tasks as services (commands)
     await this.installTasksAsServices(bmadCorePath);
@@ -289,8 +316,9 @@ When in this environment, you have access to all BMad tools:
     await this.installWorkflowsAsEnvironments(bmadCorePath);
 
     console.log(`✅ BMad prompts installed to ${this.llxprtRoot}`);
-    console.log(`   - Tools: ${this.bmadToolsDir}`);
-    console.log(`   - Commands: ${this.bmadServicesDir}`);
+    console.log(`   - IDE Tools: ${this.bmadToolsDir}`);
+    console.log(`   - CLI Commands: ${this.bmadCommandsDir}`);
+    console.log(`   - IDE Services: ${this.bmadServicesDir}`);
     console.log(`   - Environments: ${this.bmadEnvDir}`);
   }
 
@@ -375,6 +403,85 @@ When in this environment, you have access to all BMad tools:
       
       await fs.writeFile(outputPath, servicePrompt);
       console.log(`   ✓ Task ${taskId} → /${taskId} command`);
+    }
+  }
+
+  /**
+   * Install BMad agents as CLI commands (TOML format for llxprt CLI)
+   */
+  async installAgentsAsCliCommands(bmadCorePath) {
+    const agentsDir = path.join(bmadCorePath, 'agents');
+    
+    if (!(await fs.pathExists(agentsDir))) {
+      console.warn('BMad agents directory not found');
+      return;
+    }
+
+    const agentFiles = await fs.readdir(agentsDir);
+    
+    for (const agentFile of agentFiles) {
+      if (!agentFile.endsWith('.md')) continue;
+      
+      const agentId = path.basename(agentFile, '.md');
+      const agentPath = path.join(agentsDir, agentFile);
+      const agentContent = await fs.readFile(agentPath, 'utf8');
+      
+      try {
+        const yamlConfig = extractYamlFromAgent(agentContent);
+        const agent = yamlConfig.agent || {};
+        const description = agent.description || `BMad ${agentId} agent`;
+        
+        // Extract the core prompt content (everything after the YAML block)
+        const contentParts = agentContent.split('```');
+        const promptContent = contentParts.length > 2 ? contentParts.slice(2).join('```').trim() : agentContent;
+        
+        const cliCommand = this.createCliCommand(agentId, description, promptContent);
+        const outputPath = path.join(this.bmadCommandsDir, `${agentId}.toml`);
+        
+        await fs.writeFile(outputPath, cliCommand);
+        console.log(`   ✓ Agent ${agentId} → /${agentId} CLI command`);
+      } catch (error) {
+        console.warn(`   ⚠ Could not create CLI command for ${agentId}:`, error.message);
+      }
+    }
+  }
+
+  /**
+   * Install BMad tasks as CLI commands (TOML format for llxprt CLI)
+   */
+  async installTasksAsCliCommands(bmadCorePath) {
+    const tasksDir = path.join(bmadCorePath, 'tasks');
+    const commonTasksDir = path.join(path.dirname(bmadCorePath), 'common', 'tasks');
+    
+    // Process both core tasks and common tasks
+    const taskDirs = [
+      { dir: tasksDir, prefix: '' },
+      { dir: commonTasksDir, prefix: 'common-' }
+    ];
+
+    for (const { dir: currentTasksDir, prefix } of taskDirs) {
+      if (!(await fs.pathExists(currentTasksDir))) continue;
+      
+      const taskFiles = await fs.readdir(currentTasksDir);
+      
+      for (const taskFile of taskFiles) {
+        if (!taskFile.endsWith('.md')) continue;
+        
+        const taskId = prefix + path.basename(taskFile, '.md');
+        const taskPath = path.join(currentTasksDir, taskFile);
+        const taskContent = await fs.readFile(taskPath, 'utf8');
+        
+        // Extract task description from content
+        const lines = taskContent.split('\n');
+        const firstLine = lines.find(line => line.trim() && !line.startsWith('#'));
+        const description = firstLine ? firstLine.trim() : `BMad ${taskId} task`;
+        
+        const cliCommand = this.createCliCommand(taskId, description, taskContent);
+        const outputPath = path.join(this.bmadCommandsDir, `${taskId}.toml`);
+        
+        await fs.writeFile(outputPath, cliCommand);
+        console.log(`   ✓ Task ${taskId} → /${taskId} CLI command`);
+      }
     }
   }
 

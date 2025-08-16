@@ -1295,7 +1295,7 @@ tools: ['changes', 'codebase', 'fetch', 'findTestFiles', 'githubRepo', 'problems
 
   async setupLlxprt(installDir, selectedAgent) {
     const LlxprtAdapter = require('./llxprt-adapter');
-    const adapter = new LlxprtAdapter();
+    const adapter = new LlxprtAdapter(installDir);
 
     try {
       console.log(chalk.blue("🔧 Setting up BMad integration for llxprt-code..."));
@@ -1314,12 +1314,15 @@ tools: ['changes', 'codebase', 'fetch', 'findTestFiles', 'githubRepo', 'problems
       await adapter.createBaseConfig();
 
       console.log(chalk.green("✅ llxprt-code integration complete!"));
-      console.log(chalk.dim("\nBMad integration installed to llxprt structure:"));
-      console.log(chalk.dim("  • Tools: ~/.llxprt/prompts/tools/bmad/"));
-      console.log(chalk.dim("  • Commands: ~/.llxprt/prompts/services/bmad/"));
-      console.log(chalk.dim("  • Environments: ~/.llxprt/prompts/env/bmad/"));
-      console.log(chalk.dim("\nUsage in any llxprt-compatible IDE:"));
+      console.log(chalk.dim("\nBMad integration installed to project llxprt structure:"));
+      console.log(chalk.dim(`  • CLI Commands: ${installDir}/.llxprt/commands/bmad/`));
+      console.log(chalk.dim(`  • IDE Tools: ${installDir}/.llxprt/prompts/tools/bmad/`));
+      console.log(chalk.dim(`  • IDE Services: ${installDir}/.llxprt/prompts/services/bmad/`));
+      console.log(chalk.dim(`  • Environments: ${installDir}/.llxprt/prompts/env/bmad/`));
+      console.log(chalk.dim("\nUsage with llxprt CLI (from project directory):"));
       console.log(chalk.dim("  • Slash commands: /dev, /pm, /architect, /create-next-story"));
+      console.log(chalk.dim("  • Example: llxprt then type '/dev Help me implement login'"));
+      console.log(chalk.dim("\nUsage in llxprt-compatible IDEs:"));
       console.log(chalk.dim("  • Tool references: 'as dev agent', 'using pm persona'"));
       console.log(chalk.dim("  • Environment contexts: automatically detected"));
       
