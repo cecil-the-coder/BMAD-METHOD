@@ -111,3 +111,17 @@ ide-configurations:
       # 2. It concatenates all agent files into a single QWEN.md file.
       # 3. Simply mention the agent in your prompt (e.g., "As *dev, ...").
       # 4. The Qwen Code CLI will automatically have the context for that agent.
+  llxprt:
+    name: llxprt-code
+    rule-dir: ~/.llxprt/prompts/
+    format: llxprt-hierarchy
+    command-suffix: .md
+    instructions: |
+      # To use BMad agents with llxprt-code:
+      # 1. The installer creates prompts in ~/.llxprt/prompts/tools/bmad/
+      # 2. Agent slash commands are available in ~/.llxprt/prompts/services/bmad/
+      # 3. BMad workflows go in ~/.llxprt/prompts/env/bmad/
+      # 4. Use /agent-name (e.g., "/dev", "/pm", "/architect") as commands
+      # 5. Use agent names directly as tools in your llxprt-compatible IDE
+      # 6. Environment and tool-specific configurations are auto-detected
+      # 7. BMad's structured workflows integrate with llxprt's context system

@@ -45,19 +45,22 @@ program
   .option('-f, --full', 'Install complete BMad Method')
   .option('-x, --expansion-only', 'Install only expansion packs (no bmad-core)')
   .option('-d, --directory <path>', 'Installation directory')
-  .option('-i, --ide <ide...>', 'Configure for specific IDE(s) - can specify multiple (cursor, claude-code, windsurf, trae, roo, kilo, cline, gemini, qwen-code, github-copilot, other)')
+  .option('-i, --ide <ide...>', 'Configure for specific IDE(s) - can specify multiple (cursor, claude-code, windsurf, trae, roo, kilo, cline, gemini, qwen-code, github-copilot, llxprt, other)')
   .option('-e, --expansion-packs <packs...>', 'Install specific expansion packs (can specify multiple)')
   .action(async (options) => {
     try {
-      if (!options.full && !options.expansionOnly) {
-        // Interactive mode
+      // Check if any specific options are provided for direct mode
+      const hasDirectModeOptions = options.full || options.expansionOnly || options.directory || options.ide || options.expansionPacks;
+      
+      if (!hasDirectModeOptions) {
+        // Interactive mode - no specific options provided
         const answers = await promptInstallation();
         if (!answers._alreadyInstalled) {
           await installer.install(answers);
           process.exit(0);
         }
       } else {
-        // Direct mode
+        // Direct mode - specific options provided
         let installType = 'full';
         if (options.expansionOnly) installType = 'expansion-only';
 
@@ -373,7 +376,8 @@ async function promptInstallation() {
           { name: 'Cline', value: 'cline' },
           { name: 'Gemini CLI', value: 'gemini' },
           { name: 'Qwen Code', value: 'qwen-code' },
-          { name: 'Github Copilot', value: 'github-copilot' }
+          { name: 'Github Copilot', value: 'github-copilot' },
+          { name: 'llxprt-code', value: 'llxprt' }
         ]
       }
     ]);

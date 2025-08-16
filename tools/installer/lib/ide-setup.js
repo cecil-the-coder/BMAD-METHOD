@@ -61,6 +61,8 @@ class IdeSetup extends BaseIdeSetup {
         return this.setupGitHubCopilot(installDir, selectedAgent, spinner, preConfiguredSettings);
       case "qwen-code":
         return this.setupQwenCode(installDir, selectedAgent);
+      case "llxprt":
+        return this.setupLlxprt(installDir, selectedAgent);
       default:
         console.log(chalk.yellow(`\nIDE ${ide} not yet supported`));
         return false;
@@ -1289,6 +1291,43 @@ tools: ['changes', 'codebase', 'fetch', 'findTestFiles', 'githubRepo', 'problems
     });
     console.log(chalk.dim(""));
     console.log(chalk.dim("You can modify these settings anytime in .vscode/settings.json"));
+  }
+
+  async setupLlxprt(installDir, selectedAgent) {
+    const LlxprtAdapter = require('./llxprt-adapter');
+    const adapter = new LlxprtAdapter();
+
+    try {
+      console.log(chalk.blue("🔧 Setting up BMad integration for llxprt-code..."));
+      
+      // Find bmad-core directory
+      const bmadCorePath = path.join(installDir, '.bmad-core');
+      if (!(await fileManager.pathExists(bmadCorePath))) {
+        console.error(chalk.red("❌ .bmad-core directory not found. Please ensure BMad is properly installed."));
+        return false;
+      }
+
+      // Install BMad prompts to llxprt structure
+      await adapter.installToLlxprt(bmadCorePath);
+      
+      // Create base configuration
+      await adapter.createBaseConfig();
+
+      console.log(chalk.green("✅ llxprt-code integration complete!"));
+      console.log(chalk.dim("\nBMad integration installed to llxprt structure:"));
+      console.log(chalk.dim("  • Tools: ~/.llxprt/prompts/tools/bmad/"));
+      console.log(chalk.dim("  • Commands: ~/.llxprt/prompts/services/bmad/"));
+      console.log(chalk.dim("  • Environments: ~/.llxprt/prompts/env/bmad/"));
+      console.log(chalk.dim("\nUsage in any llxprt-compatible IDE:"));
+      console.log(chalk.dim("  • Slash commands: /dev, /pm, /architect, /create-next-story"));
+      console.log(chalk.dim("  • Tool references: 'as dev agent', 'using pm persona'"));
+      console.log(chalk.dim("  • Environment contexts: automatically detected"));
+      
+      return true;
+    } catch (error) {
+      console.error(chalk.red("❌ Failed to setup llxprt integration:"), error.message);
+      return false;
+    }
   }
 }
 

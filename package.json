@@ -31,7 +31,8 @@
     "version:expansion:all:patch": "node tools/bump-all-versions.js patch",
     "release": "semantic-release",
     "release:test": "semantic-release --dry-run --no-ci || echo 'Config test complete - authentication errors are expected locally'",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:llxprt": "node test-llxprt-integration.js"
   },
   "dependencies": {
     "@kayvan/markdown-tree-parser": "^1.5.0",
